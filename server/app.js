@@ -37,6 +37,24 @@ if (!process.env.VERCEL) {
 
 // Core Middlewares
 app.use(cors());
+
+// Vercel Serverless Stream Fix:
+// If req.body has already been consumed and parsed by Vercel Serverless Function runtime,
+// mark req._body = true so express.json() / body-parser does not hang waiting for stream EOF.
+app.use((req, res, next) => {
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch (e) {}
+    }
+    if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+      req._body = true;
+    }
+  }
+  next();
+});
+
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
