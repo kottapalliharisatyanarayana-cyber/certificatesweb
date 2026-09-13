@@ -23,10 +23,16 @@ const Template = require('./models/Template');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Ensure uploads/templates directory exists
-const uploadsDir = path.join(__dirname, '../uploads/templates');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// Ensure uploads/templates directory exists (skip on Vercel read-only filesystem)
+if (!process.env.VERCEL) {
+  try {
+    const uploadsDir = path.join(__dirname, '../uploads/templates');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+  } catch (e) {
+    console.warn('Could not create uploadsDir:', e.message);
+  }
 }
 
 // Core Middlewares
@@ -103,13 +109,13 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// Mount API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/students', studentRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/templates', templateRoutes);
-app.use('/api/certificates', certificateRoutes);
+// Mount API Routes (supports both /api/route and /route for Vercel rewrites)
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/students', '/students'], studentRoutes);
+app.use(['/api/events', '/events'], eventRoutes);
+app.use(['/api/upload', '/upload'], uploadRoutes);
+app.use(['/api/templates', '/templates'], templateRoutes);
+app.use(['/api/certificates', '/certificates'], certificateRoutes);
 
 if (!process.env.VERCEL) {
   // Admin portal route alias (Local development)

@@ -6,10 +6,20 @@ const fs = require('fs');
 const Template = require('../models/Template');
 const authMiddleware = require('../utils/authMiddleware');
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../../uploads/templates');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+const os = require('os');
+
+// Ensure upload directory exists (serverless safe)
+const isVercel = !!process.env.VERCEL;
+const uploadDir = isVercel 
+  ? path.join(os.tmpdir(), 'uploads_templates') 
+  : path.join(__dirname, '../../uploads/templates');
+
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create upload directory:', e.message);
 }
 
 const storage = multer.diskStorage({
