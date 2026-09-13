@@ -3,15 +3,18 @@ const dns = require('dns');
 require('dotenv').config();
 
 // Set Google DNS to ensure SRV records for Atlas resolve cleanly on Windows
-try {
-  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
-} catch (e) {
-  // Ignore if unable to set custom DNS
+if (process.platform === 'win32') {
+  try {
+    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+  } catch (e) {
+    // Ignore if unable to set custom DNS
+  }
 }
 
 let isConnected = false;
 let lastError = null;
 let activeConnectionMode = 'disconnected';
+let cachedPromise = null;
 
 const formatUri = (rawUri) => {
   if (!rawUri) return '';
@@ -28,21 +31,26 @@ const formatUri = (rawUri) => {
 };
 
 const connectDB = async (customUri = null) => {
+  const isVercel = !!process.env.VERCEL;
   const primaryUri = formatUri(customUri || process.env.MONGODB_URI);
-  const localFallbackUri = 'mongodb://127.0.0.1:27017/certificate_db';
+  const localFallbackUri = isVercel ? null : 'mongodb://127.0.0.1:27017/certificate_db';
 
   if (!primaryUri && !localFallbackUri) {
-    lastError = 'MONGODB_URI is not set. Please provide a MongoDB connection string.';
+    lastError = 'MONGODB_URI is not set. Please provide a MongoDB Atlas connection string.';
     console.warn('⚠️ ' + lastError);
     return false;
   }
 
-  try {
-    if (mongoose.connection.readyState === 1) {
-      isConnected = true;
-      return true;
-    }
+  if (mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return true;
+  }
 
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  cachedPromise = (async () => {
     // Try primary URI first (e.g. MongoDB Atlas)
     if (primaryUri) {
       try {
@@ -59,27 +67,41 @@ const connectDB = async (customUri = null) => {
         return true;
       } catch (atlasErr) {
         console.warn(`⚠️ Primary MongoDB connection failed: ${atlasErr.message}`);
+        if (isVercel) {
+          isConnected = false;
+          lastError = atlasErr.message;
+          cachedPromise = null;
+          return false;
+        }
         console.log('🔄 Attempting automatic fallback to local MongoDB (127.0.0.1:27017)...');
       }
     }
 
-    // Fallback to local MongoDB
-    const conn = await mongoose.connect(localFallbackUri, {
-      serverSelectionTimeoutMS: 4000,
-    });
+    if (localFallbackUri) {
+      try {
+        const conn = await mongoose.connect(localFallbackUri, {
+          serverSelectionTimeoutMS: 4000,
+        });
 
-    isConnected = true;
-    lastError = null;
-    activeConnectionMode = 'Local MongoDB (Fallback)';
-    console.log(`✅ Local MongoDB Connected: ${conn.connection.host}`);
-    await seedDefaults();
-    return true;
-  } catch (err) {
-    isConnected = false;
-    lastError = err.message;
-    console.error(`❌ All MongoDB Connection attempts failed: ${err.message}`);
+        isConnected = true;
+        lastError = null;
+        activeConnectionMode = 'Local MongoDB (Fallback)';
+        console.log(`✅ Local MongoDB Connected: ${conn.connection.host}`);
+        await seedDefaults();
+        return true;
+      } catch (err) {
+        isConnected = false;
+        lastError = err.message;
+        cachedPromise = null;
+        console.error(`❌ All MongoDB Connection attempts failed: ${err.message}`);
+        return false;
+      }
+    }
+
     return false;
-  }
+  })();
+
+  return cachedPromise;
 };
 
 const seedDefaults = async () => {

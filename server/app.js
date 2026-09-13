@@ -88,18 +88,20 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/certificates', certificateRoutes);
 
-// Admin portal route alias
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/admin.html'));
-});
+if (!process.env.VERCEL) {
+  // Admin portal route alias (Local development)
+  app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/admin.html'));
+  });
 
-// SPA fallback for student portal
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
-    return next();
-  }
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
+  // SPA fallback for student portal (Local development)
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+      return next();
+    }
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  });
+}
 
 // Centralized error handler
 app.use((err, req, res, next) => {
