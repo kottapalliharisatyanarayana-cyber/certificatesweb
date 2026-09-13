@@ -35,6 +35,16 @@ if (!process.env.VERCEL) {
   }
 }
 
+// URL restoration for Vercel serverless rewrites:
+// If Vercel rewrote the request to /api, restore the original URI from x-forwarded-uri or x-matched-path
+app.use((req, res, next) => {
+  const forwardUri = req.headers['x-forwarded-uri'] || req.headers['x-matched-path'];
+  if (forwardUri && (req.url === '/api' || req.url === '/api/' || req.url === '')) {
+    req.url = forwardUri;
+  }
+  next();
+});
+
 // Core Middlewares
 app.use(cors());
 
