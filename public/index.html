@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatic Certificate Portal | Sri Vasavi Engineering College</title>
+  <meta name="description" content="Automatic Certificate Generation and Distribution System for college and technical events. Search your roll number to view and download your verified certificates.">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/" class="brand">
+        <div class="brand-icon">📜</div>
+        <div class="brand-text">
+          <h1>Sri Vasavi Engineering College</h1>
+          <p>Certificate Generation System</p>
+        </div>
+      </a>
+      <div class="nav-links">
+        <a href="/" class="nav-btn nav-btn-ghost active">🎓 Student Portal</a>
+        <a href="/admin" class="nav-btn nav-btn-primary">🔐 Admin Login</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">✨ Official Verification Portal</div>
+      <h1 class="hero-title">Download Your <span>Event Certificates</span></h1>
+      <p class="hero-subtitle">
+        Enter your Roll Number below to instantly retrieve, preview, and download your authentic participation certificates.
+      </p>
+
+      <!-- SEARCH FORM -->
+      <form id="searchForm" class="search-card" onsubmit="handleSearch(event)">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          id="rollInput" 
+          class="search-input" 
+          placeholder="Enter Roll Number (e.g. 22A81A0501)..." 
+          required 
+          autocomplete="off"
+          autofocus
+        >
+        <button type="submit" id="searchBtn" class="search-btn">
+          <span>Search</span> ➔
+        </button>
+      </form>
+
+      <!-- QUICK SAMPLE ROLL NUMBERS -->
+      <div class="quick-samples">
+        <span>Try Sample Roll Numbers:</span>
+        <button type="button" class="sample-chip" onclick="fillRoll('22A81A0501')">22A81A0501 (Excel)</button>
+        <button type="button" class="sample-chip" onclick="fillRoll('22A81A0510')">22A81A0510 (PDF)</button>
+        <button type="button" class="sample-chip" onclick="fillRoll('22A81A0599')">22A81A0599 (Manual)</button>
+        <button type="button" class="sample-chip" onclick="fillRoll('22A81A0503')">22A81A0503</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN RESULTS CONTAINER -->
+  <main class="main-content">
+    
+    <!-- INITIAL EMPTY STATE -->
+    <div id="welcomeState" class="card empty-state">
+      <div class="empty-icon">🎓</div>
+      <h3>Welcome to the Certificate Portal</h3>
+      <p>Please enter your College Roll Number in the search box above to view your participation records and download certificates.</p>
+    </div>
+
+    <!-- LOADING SPINNER -->
+    <div id="loadingState" class="card empty-state" style="display: none;">
+      <div class="empty-icon" style="animation: spin 1s linear infinite;">⏳</div>
+      <h3>Fetching Your Certificates...</h3>
+      <p>Searching college participation database records...</p>
+    </div>
+
+    <!-- STUDENT RESULTS SECTION -->
+    <div id="resultsContainer" style="display: none;">
+      
+      <!-- STUDENT PROFILE CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>👤</span>
+            <span>Participant Profile</span>
+          </div>
+          <button id="consolidatedBtn" class="btn btn-secondary btn-sm" onclick="previewConsolidatedCertificate()">
+            📜 View Multi-Event Certificate
+          </button>
+        </div>
+
+        <div class="student-profile-grid">
+          <div class="profile-field">
+            <span class="profile-label">Student Name</span>
+            <span id="studentName" class="profile-value">-</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-label">Roll Number</span>
+            <span id="studentRoll" class="profile-value" style="color: var(--primary-light);">-</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-label">Branch / Department</span>
+            <span id="studentBranch" class="profile-value">-</span>
+          </div>
+          <div class="profile-field">
+            <span class="profile-label">Semester / Year</span>
+            <span id="studentSem" class="profile-value">-</span>
+          </div>
+        </div>
+
+        <!-- PARTICIPATED EVENTS -->
+        <div class="card-header" style="margin-top: 1.5rem; margin-bottom: 1rem;">
+          <div class="card-title" style="font-size: 1.15rem;">
+            <span>🏆</span>
+            <span>Participated Events</span>
+            <span id="eventCountBadge" class="badge badge-primary" style="margin-left: 0.5rem;">0 Events</span>
+          </div>
+        </div>
+
+        <div id="eventsGrid" class="events-grid">
+          <!-- Dynamically populated event cards -->
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- CERTIFICATE PREVIEW MODAL -->
+  <div id="certificateModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalCertTitle" class="modal-title">Certificate Preview</h3>
+          <p id="modalCertSubtitle" style="font-size: 0.8rem; color: var(--text-muted);">Verified Institutional Certificate</p>
+        </div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="canvas-wrapper">
+          <canvas id="certificateCanvas" width="1024" height="682"></canvas>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
+          <span>🔒</span> Verified by Sri Vasavi Engineering College
+        </div>
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary" onclick="downloadCertificateImage()">
+            🖼️ Download PNG
+          </button>
+          <button class="btn btn-success" onclick="downloadCertificatePDF()">
+            ⬇️ Download PDF
+          </button>
+          <button class="btn btn-secondary" onclick="closeModal()">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-container">
+      <p>&copy; 2026 Sri Vasavi Engineering College. Automatic Certificate Generation Web System.</p>
+      <div style="display: flex; gap: 1.5rem;">
+        <a href="/admin" style="color: #94a3b8;">Admin Login</a>
+        <a href="/api/health" target="_blank" style="color: #94a3b8;">System Health</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- OFFLINE-READY PDF GENERATOR & APP SCRIPT -->
+  <script src="/js/libs/jspdf.umd.min.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

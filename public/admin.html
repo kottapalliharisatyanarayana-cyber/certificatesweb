@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | Certificate Management System</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="/admin" class="brand">
+        <div class="brand-icon">🔐</div>
+        <div class="brand-text">
+          <h1>Admin Management Portal</h1>
+          <p>Sri Vasavi Engineering College</p>
+        </div>
+      </a>
+      <div class="nav-links">
+        <span id="dbStatusBadge" class="badge badge-success" style="display: none;">● DB Connected</span>
+        <a href="/" class="nav-btn nav-btn-ghost">🎓 Student View</a>
+        <button id="logoutBtn" class="nav-btn nav-btn-ghost" style="display: none;" onclick="handleLogout()">🚪 Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- LOGIN SECTION (Visible when logged out) -->
+  <div id="loginView" style="display: none; padding: 4rem 1.5rem;">
+    <div class="card" style="max-width: 440px; margin: 0 auto; box-shadow: var(--shadow-xl);">
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔐</div>
+        <h2 style="font-family: var(--font-display); font-size: 1.6rem; font-weight: 800;">Admin Sign In</h2>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">Enter credentials to manage certificate records</p>
+      </div>
+
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input type="text" id="username" class="form-control" placeholder="admin" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block" style="padding: 0.8rem; font-weight: 700; margin-top: 1rem;">
+          Sign In to Dashboard
+        </button>
+      </form>
+
+      <div style="margin-top: 1.25rem; padding: 0.75rem; background: var(--surface-subtle); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+        💡 Default: <strong>admin</strong> / <strong>admin123</strong>
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-top: 0.5rem; display: block; width: 100%;" onclick="quickFillAdmin()">Quick Fill Credentials</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN DASHBOARD (Visible when authenticated) -->
+  <div id="dashboardView" class="admin-layout" style="display: none;">
+
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar">
+      <div class="sidebar-title">Menu Navigation</div>
+      <ul class="sidebar-nav">
+        <li><a class="sidebar-link active" onclick="switchTab('overview')">📊 Overview & Stats</a></li>
+        <li><a class="sidebar-link" onclick="switchTab('upload')">📥 Upload Excel / PDF</a></li>
+        <li><a class="sidebar-link" onclick="switchTab('manual')">✍️ Add Participant</a></li>
+        <li><a class="sidebar-link" onclick="switchTab('students')">👥 Manage Students</a></li>
+        <li><a class="sidebar-link" onclick="switchTab('events')">🏆 Manage Events</a></li>
+        <li><a class="sidebar-link" onclick="switchTab('template')">🎨 Template Studio</a></li>
+      </ul>
+
+      <div style="margin-top: 2rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: var(--radius-sm);">
+        <p style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">ACTIVE TEMPLATE</p>
+        <p id="sidebarActiveTemplate" style="font-size: 0.85rem; color: #fff; font-weight: 700; margin-top: 0.25rem;">Sri Vasavi College</p>
+      </div>
+    </aside>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="admin-main">
+
+      <!-- TAB 1: OVERVIEW -->
+      <section id="tab-overview">
+        <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;">System Overview</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Real-time statistics and certificate generation engine status</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadStats()">🔄 Refresh</button>
+        </div>
+
+        <!-- STATS GRID -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Total Participants</p>
+              <h2 id="statStudents">0</h2>
+            </div>
+            <div class="stat-icon stat-icon-blue">👥</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Active Events</p>
+              <h2 id="statEvents">0</h2>
+            </div>
+            <div class="stat-icon stat-icon-green">🏆</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Participations Recorded</p>
+              <h2 id="statParticipations">0</h2>
+            </div>
+            <div class="stat-icon stat-icon-purple">📜</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Database Engine</p>
+              <h2 id="statDbMode" style="font-size: 1.15rem; margin-top: 0.5rem; color: var(--success);">Online</h2>
+            </div>
+            <div class="stat-icon stat-icon-amber">🗄️</div>
+          </div>
+        </div>
+
+        <!-- QUICK ACTION CARDS -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+          <div class="card">
+            <h3 style="font-family: var(--font-display); font-size: 1.15rem; margin-bottom: 0.5rem;">📥 Upload Participant Files</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+              Upload spreadsheets (.xlsx / .xls) or participant PDF attendance lists with automatic extraction.
+            </p>
+            <button class="btn btn-primary btn-sm" onclick="switchTab('upload')">Go to Uploader ➔</button>
+          </div>
+
+          <div class="card">
+            <h3 style="font-family: var(--font-display); font-size: 1.15rem; margin-bottom: 0.5rem;">✍️ Manual Participant Entry</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+              Quickly register individual students, select events, or edit existing records.
+            </p>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('manual')">Add Participant ➔</button>
+          </div>
+
+          <div class="card">
+            <h3 style="font-family: var(--font-display); font-size: 1.15rem; margin-bottom: 0.5rem;">🎨 Certificate Studio</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+              Interactively adjust coordinates, typography, and font colors on the certificate canvas.
+            </p>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('template')">Open Template Studio ➔</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: EXCEL & PDF UPLOAD -->
+      <section id="tab-upload" style="display: none;">
+        <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;">Upload Participant Data (Excel / PDF)</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Automated participant extraction from spreadsheets (.xlsx) and PDF documents (.pdf)</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="/api/upload/sample-excel" class="btn btn-secondary btn-sm" target="_blank">
+              📊 Download Sample Excel
+            </a>
+            <a href="/api/upload/sample-pdf" class="btn btn-secondary btn-sm" target="_blank">
+              📑 Download Sample PDF
+            </a>
+          </div>
+        </div>
+
+        <!-- UPLOAD MODE SELECTOR -->
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+          <button id="modeBtnExcel" class="btn btn-primary" onclick="setUploadMode('excel')">
+            📊 Upload Excel Sheet (.xlsx, .xls)
+          </button>
+          <button id="modeBtnPdf" class="btn btn-secondary" onclick="setUploadMode('pdf')">
+            📑 Upload PDF Document (.pdf)
+          </button>
+        </div>
+
+        <div class="card">
+          <!-- EXCEL DROPZONE -->
+          <div id="excelUploadBox">
+            <div id="dropzoneExcel" class="dropzone" onclick="document.getElementById('excelFileInput').click()">
+              <div class="dropzone-icon">📊</div>
+              <h3>Click or Drag & Drop Excel File Here</h3>
+              <p>Supports .xlsx and .xls spreadsheets up to 15MB</p>
+              <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleFileSelected(event, 'excel')">
+            </div>
+          </div>
+
+          <!-- PDF DROPZONE -->
+          <div id="pdfUploadBox" style="display: none;">
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+              <label class="form-label" for="pdfEventSelect">Assign To Event (Optional)</label>
+              <select id="pdfEventSelect" class="form-control">
+                <option value="">-- Auto-detect event name from PDF header --</option>
+              </select>
+            </div>
+
+            <div id="dropzonePdf" class="dropzone" onclick="document.getElementById('pdfFileInput').click()">
+              <div class="dropzone-icon">📑</div>
+              <h3>Click or Drag & Drop PDF File Here</h3>
+              <p>Extracts participant tables and roll numbers from official PDF lists</p>
+              <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;" onchange="handleFileSelected(event, 'pdf')">
+            </div>
+          </div>
+
+          <!-- SELECTED FILE BANNER -->
+          <div id="fileInfoArea" style="display: none; margin-top: 1.5rem; padding: 1rem; background: var(--surface-subtle); border-radius: var(--radius-sm); align-items: center; justify-content: space-between;">
+            <div>
+              <strong id="selectedFileName" style="color: var(--text-main);">filename</strong>
+              <span id="selectedFileSize" style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">(0 KB)</span>
+            </div>
+            <button id="startUploadBtn" class="btn btn-primary" onclick="startFileUpload()">
+              ⚡ Process & Import Records
+            </button>
+          </div>
+
+          <!-- IMPORT RESULT SUMMARY -->
+          <div id="uploadResultArea" style="display: none; margin-top: 2rem;">
+            <div id="uploadResultAlert" class="badge badge-success" style="font-size: 0.95rem; padding: 0.6rem 1.25rem; margin-bottom: 1rem;">
+              Upload Successful
+            </div>
+
+            <div id="uploadSummaryGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;"></div>
+
+            <div id="invalidRecordsTableArea" style="display: none;">
+              <h4 style="color: var(--danger); margin-bottom: 0.5rem;">⚠️ Skipped / Invalid Rows:</h4>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Row</th>
+                      <th>Roll No</th>
+                      <th>Name</th>
+                      <th>Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody id="invalidRecordsBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 3: MANUAL PARTICIPANT ENTRY -->
+      <section id="tab-manual" style="display: none;">
+        <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;">Manual Participant Entry</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Register a student and associate them with participated events</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="clearManualForm()">Clear Form</button>
+        </div>
+
+        <div class="card" style="max-width: 760px;">
+          <form onsubmit="handleManualStudentSubmit(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="manualRoll">Roll Number *</label>
+                <input type="text" id="manualRoll" class="form-control" placeholder="e.g. 22A81A0520" required style="text-transform: uppercase;">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="manualName">Student Full Name *</label>
+                <input type="text" id="manualName" class="form-control" placeholder="e.g. Rahul Sharma" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="manualBranch">Branch / Department</label>
+                <input type="text" id="manualBranch" class="form-control" placeholder="CSE" value="CSE">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="manualSem">Semester / Year</label>
+                <input type="text" id="manualSem" class="form-control" placeholder="IV Semester B.Tech" value="IV Semester B.Tech">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="manualEmail">Email Address (Optional)</label>
+              <input type="email" id="manualEmail" class="form-control" placeholder="rahul@example.com">
+            </div>
+
+            <div class="form-group">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+                <label class="form-label" style="margin: 0;">Participated Events</label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="promptNewEventInline()">+ Create New Event</button>
+              </div>
+              <div id="manualEventsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.65rem; background: var(--surface-subtle); padding: 1rem; border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto;">
+                <p style="color: var(--text-muted); font-size: 0.85rem;">Loading events list...</p>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+              <button type="submit" class="btn btn-primary" style="padding: 0.75rem 1.75rem;">
+                💾 Save Participant
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="clearManualForm()">
+                Reset
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 4: MANAGE STUDENTS -->
+      <section id="tab-students" style="display: none;">
+        <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;">Manage Student Records</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">View, search, edit, or delete participant registrations</p>
+          </div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="switchTab('manual')">+ Add Participant</button>
+            <input type="text" id="studentSearchInput" class="form-control" placeholder="Search Roll, Name, Branch..." oninput="handleStudentSearchInput(this.value)" style="width: 240px;">
+            <button class="btn btn-secondary btn-sm" onclick="loadStudents(1)">Search</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 0; overflow: hidden;">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Roll No</th>
+                  <th>Student Name</th>
+                  <th>Branch</th>
+                  <th>Semester</th>
+                  <th>Events</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTableBody">
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading student records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- PAGINATION -->
+          <div id="studentsPagination" style="padding: 1rem; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--surface-border); font-size: 0.85rem;">
+            <span id="pageInfo">Showing page 1</span>
+            <div style="display: flex; gap: 0.5rem;">
+              <button id="prevPageBtn" class="btn btn-secondary btn-sm" onclick="changeStudentPage(-1)">Previous</button>
+              <button id="nextPageBtn" class="btn btn-secondary btn-sm" onclick="changeStudentPage(1)">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: MANAGE EVENTS -->
+      <section id="tab-events" style="display: none;">
+        <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;">Manage Events</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Create and configure events associated with certificates</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem;">
+          <!-- CREATE EVENT FORM -->
+          <div class="card">
+            <h3 style="font-family: var(--font-display); font-size: 1.15rem; margin-bottom: 1rem;">Add New Event</h3>
+            <form onsubmit="handleCreateEvent(event)">
+              <div class="form-group">
+                <label class="form-label" for="newEventName">Event Name *</label>
+                <input type="text" id="newEventName" class="form-control" placeholder="e.g. AI & Robotics 2026" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newEventDate">Event Date</label>
+                <input type="text" id="newEventDate" class="form-control" placeholder="e.g. Sep 20, 2026">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newEventDesc">Description</label>
+                <textarea id="newEventDesc" class="form-control" rows="3" placeholder="Brief details about the event"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block">Create Event</button>
+            </form>
+          </div>
+
+          <!-- EVENTS TABLE -->
+          <div class="card" style="padding: 0; overflow: hidden;">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Event Name</th>
+                    <th>Date</th>
+                    <th>Participants</th>
+                    <th style="text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="eventsTableBody">
+                  <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading events...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: TEMPLATE STUDIO -->
+      <section id="tab-template" style="display: none;">
+        <div class="card-header" style="border: none; padding: 0; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;">Certificate Template Studio</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Fine-tune text placement coordinates (X, Y) and typography with live preview</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary btn-sm" onclick="resetStudioCoordinates()">↺ Reset Coordinates</button>
+            <button class="btn btn-success btn-sm" onclick="saveTemplateCoordinates()">💾 Save Template Config</button>
+          </div>
+        </div>
+
+        <div class="studio-container">
+          <!-- CANVAS PREVIEW PANEL -->
+          <div class="studio-canvas-panel">
+            <canvas id="studioCanvas" width="1024" height="682" style="max-width: 100%; height: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5);"></canvas>
+          </div>
+
+          <!-- CONTROLS PANEL -->
+          <div class="studio-controls-panel">
+            <div style="margin-bottom: 1rem;">
+              <h4 style="margin-bottom: 0.5rem;">Upload New Template Image</h4>
+              <input type="file" id="newTemplateFileInput" accept=".jpg,.jpeg,.png" class="form-control" onchange="handleUploadNewTemplate(event)">
+            </div>
+            <hr style="margin-bottom: 1rem; border: none; border-top: 1px solid var(--surface-border);">
+
+            <!-- STUDENT NAME CONTROLS -->
+            <div class="field-slider-group">
+              <h4><span>Student Name</span> <span id="label-name-coords" style="font-size: 0.75rem; color: var(--text-muted);"></span></h4>
+              <div class="form-row">
+                <div>
+                  <label style="font-size: 0.75rem;">X Coordinate</label>
+                  <input type="number" id="coord-name-x" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Y Coordinate</label>
+                  <input type="number" id="coord-name-y" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Font Size</label>
+                  <input type="number" id="coord-name-size" class="form-control" oninput="updateStudioLive()">
+                </div>
+              </div>
+            </div>
+
+            <!-- SEMESTER CONTROLS -->
+            <div class="field-slider-group">
+              <h4><span>Semester</span> <span id="label-semester-coords" style="font-size: 0.75rem; color: var(--text-muted);"></span></h4>
+              <div class="form-row">
+                <div>
+                  <label style="font-size: 0.75rem;">X</label>
+                  <input type="number" id="coord-semester-x" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Y</label>
+                  <input type="number" id="coord-semester-y" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Size</label>
+                  <input type="number" id="coord-semester-size" class="form-control" oninput="updateStudioLive()">
+                </div>
+              </div>
+            </div>
+
+            <!-- BRANCH CONTROLS -->
+            <div class="field-slider-group">
+              <h4><span>Branch</span> <span id="label-branch-coords" style="font-size: 0.75rem; color: var(--text-muted);"></span></h4>
+              <div class="form-row">
+                <div>
+                  <label style="font-size: 0.75rem;">X</label>
+                  <input type="number" id="coord-branch-x" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Y</label>
+                  <input type="number" id="coord-branch-y" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Size</label>
+                  <input type="number" id="coord-branch-size" class="form-control" oninput="updateStudioLive()">
+                </div>
+              </div>
+            </div>
+
+            <!-- ROLL NO CONTROLS -->
+            <div class="field-slider-group">
+              <h4><span>Roll Number</span> <span id="label-roll-coords" style="font-size: 0.75rem; color: var(--text-muted);"></span></h4>
+              <div class="form-row">
+                <div>
+                  <label style="font-size: 0.75rem;">X</label>
+                  <input type="number" id="coord-roll-x" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Y</label>
+                  <input type="number" id="coord-roll-y" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Size</label>
+                  <input type="number" id="coord-roll-size" class="form-control" oninput="updateStudioLive()">
+                </div>
+              </div>
+            </div>
+
+            <!-- EVENTS CONTROLS -->
+            <div class="field-slider-group">
+              <h4><span>Events Line</span> <span id="label-events-coords" style="font-size: 0.75rem; color: var(--text-muted);"></span></h4>
+              <div class="form-row">
+                <div>
+                  <label style="font-size: 0.75rem;">X</label>
+                  <input type="number" id="coord-events-x" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Y</label>
+                  <input type="number" id="coord-events-y" class="form-control" oninput="updateStudioLive()">
+                </div>
+                <div>
+                  <label style="font-size: 0.75rem;">Size</label>
+                  <input type="number" id="coord-events-size" class="form-control" oninput="updateStudioLive()">
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- EDIT STUDENT MODAL -->
+  <div id="editStudentModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ Edit Participant Record</h3>
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="background: #fff; padding: 1.5rem; color: var(--text-main); align-items: stretch;">
+        <input type="hidden" id="editStudentId">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="editRoll">Roll Number</label>
+            <input type="text" id="editRoll" class="form-control" required style="text-transform: uppercase;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="editName">Student Name</label>
+            <input type="text" id="editName" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="editBranch">Branch</label>
+            <input type="text" id="editBranch" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="editSem">Semester</label>
+            <input type="text" id="editSem" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editEmail">Email Address</label>
+          <input type="email" id="editEmail" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Participated Events (Check to assign)</label>
+          <div id="editEventsList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: var(--surface-subtle); padding: 1rem; border-radius: var(--radius-sm); max-height: 180px; overflow-y: auto;">
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditedStudent()">💾 Update Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ADMIN SCRIPTS -->
+  <script src="/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+const mongoose = require('mongoose');
+const dns = require('dns');
+require('dotenv').config();
+
+// Set Google DNS to ensure SRV records for Atlas resolve cleanly on Windows
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch (e) {
+  // Ignore if unable to set custom DNS
+}
+
+let isConnected = false;
+let lastError = null;
+let activeConnectionMode = 'disconnected';
+
+const formatUri = (rawUri) => {
+  if (!rawUri) return '';
+  let uri = rawUri.trim().replace(/^["']|["']$/g, '');
+  // If it's a mongodb+srv URI without database name before query params, append /certificate_db
+  if (uri.startsWith('mongodb+srv://') && !uri.includes('mongodb.net/')) {
+    if (uri.includes('?')) {
+      uri = uri.replace('?', '/certificate_db?');
+    } else {
+      uri = uri.replace(/\/?$/, '/certificate_db?retryWrites=true&w=majority');
+    }
+  }
+  return uri;
+};
+
+const connectDB = async (customUri = null) => {
+  const primaryUri = formatUri(customUri || process.env.MONGODB_URI);
+  const localFallbackUri = 'mongodb://127.0.0.1:27017/certificate_db';
+
+  if (!primaryUri && !localFallbackUri) {
+    lastError = 'MONGODB_URI is not set. Please provide a MongoDB connection string.';
+    console.warn('⚠️ ' + lastError);
+    return false;
+  }
+
+  try {
+    if (mongoose.connection.readyState === 1) {
+      isConnected = true;
+      return true;
+    }
+
+    // Try primary URI first (e.g. MongoDB Atlas)
+    if (primaryUri) {
+      try {
+        console.log(`📡 Connecting to Primary MongoDB (${maskUri(primaryUri)})...`);
+        const conn = await mongoose.connect(primaryUri, {
+          serverSelectionTimeoutMS: 5000,
+        });
+
+        isConnected = true;
+        lastError = null;
+        activeConnectionMode = primaryUri.includes('mongodb+srv') ? 'MongoDB Atlas' : 'Primary MongoDB';
+        console.log(`✅ ${activeConnectionMode} Connected: ${conn.connection.host}`);
+        await seedDefaults();
+        return true;
+      } catch (atlasErr) {
+        console.warn(`⚠️ Primary MongoDB connection failed: ${atlasErr.message}`);
+        console.log('🔄 Attempting automatic fallback to local MongoDB (127.0.0.1:27017)...');
+      }
+    }
+
+    // Fallback to local MongoDB
+    const conn = await mongoose.connect(localFallbackUri, {
+      serverSelectionTimeoutMS: 4000,
+    });
+
+    isConnected = true;
+    lastError = null;
+    activeConnectionMode = 'Local MongoDB (Fallback)';
+    console.log(`✅ Local MongoDB Connected: ${conn.connection.host}`);
+    await seedDefaults();
+    return true;
+  } catch (err) {
+    isConnected = false;
+    lastError = err.message;
+    console.error(`❌ All MongoDB Connection attempts failed: ${err.message}`);
+    return false;
+  }
+};
+
+const seedDefaults = async () => {
+  try {
+    const Admin = require('./models/Admin');
+    const Template = require('./models/Template');
+    const bcrypt = require('bcryptjs');
+
+    // 1. Seed Admin if none exists
+    const adminCount = await Admin.countDocuments();
+    if (adminCount === 0) {
+      const defaultUser = process.env.DEFAULT_ADMIN_USER || 'admin';
+      const defaultPass = process.env.DEFAULT_ADMIN_PASS || 'admin123';
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(defaultPass, salt);
+      await Admin.create({
+        username: defaultUser,
+        password_hash: hash
+      });
+      console.log(`👤 Default Admin created: ${defaultUser} / ${defaultPass}`);
+    }
+
+    // 2. Seed Default Certificate Template if none exists
+    const templateCount = await Template.countDocuments();
+    if (templateCount === 0) {
+      await Template.create({
+        template_name: 'Sri Vasavi Engineering College (Aikyam)',
+        template_file: '/templates/svec_template.jpg',
+        is_active: true,
+        fields_config: {
+          canvas_width: 1024,
+          canvas_height: 682,
+          name: {
+            x: 350,
+            y: 355,
+            fontSize: 20,
+            fontFamily: 'Playfair Display, serif',
+            fontWeight: 'bold',
+            color: '#1a1a2e',
+            align: 'left'
+          },
+          semester: {
+            x: 125,
+            y: 382,
+            fontSize: 16,
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 'bold',
+            color: '#1a1a2e',
+            align: 'left'
+          },
+          branch: {
+            x: 360,
+            y: 382,
+            fontSize: 16,
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 'bold',
+            color: '#1a1a2e',
+            align: 'left'
+          },
+          roll_no: {
+            x: 690,
+            y: 382,
+            fontSize: 16,
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 'bold',
+            color: '#1a1a2e',
+            align: 'left'
+          },
+          events: {
+            x: 400,
+            y: 409,
+            fontSize: 16,
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 'bold',
+            color: '#7b1113', // Deep maroon/crimson matching certificate aesthetic
+            align: 'left'
+          }
+        }
+      });
+      console.log('📜 Default Sri Vasavi Engineering College template seeded!');
+    }
+  } catch (err) {
+    console.error('Error seeding defaults:', err.message);
+  }
+};
+
+const getStatus = () => {
+  return {
+    connected: isConnected && mongoose.connection.readyState === 1,
+    readyState: mongoose.connection.readyState,
+    mode: activeConnectionMode,
+    error: lastError,
+    uriMasked: maskUri(process.env.MONGODB_URI || '')
+  };
+};
+
+const maskUri = (uri) => {
+  if (!uri) return '';
+  return uri.replace(/\/\/(.*?):(.*?)@/, '//***:***@');
+};
+
+module.exports = {
+  connectDB,
+  seedDefaults,
+  getStatus
+};
