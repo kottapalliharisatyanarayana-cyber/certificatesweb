@@ -17,6 +17,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Check JWT Auth status
+// Safe fetch helper that handles text/HTML error responses gracefully
+async function safeFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      data = {
+        success: false,
+        message: text.replace(/<[^>]*>/g, '').trim().slice(0, 180) || `Server returned HTTP ${res.status}`
+      };
+    }
+    return { res, data };
+  } catch (netErr) {
+    return {
+      res: { ok: false, status: 0 },
+      data: { success: false, message: 'Network error: ' + netErr.message }
+    };
+  }
+}
+
+// Check JWT Auth status
 async function checkAuth() {
   if (!authToken) {
     showLoginView();
@@ -24,10 +48,9 @@ async function checkAuth() {
   }
 
   try {
-    const res = await fetch('/api/auth/verify', {
+    const { res, data } = await safeFetch('/api/auth/verify', {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    const data = await res.json();
 
     if (res.ok && data.success) {
       showDashboardView();
@@ -73,13 +96,12 @@ async function handleLogin(e) {
   submitBtn.textContent = 'Authenticating...';
 
   try {
-    const res = await fetch('/api/auth/login', {
+    const { res, data } = await safeFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
 
-    const data = await res.json();
     submitBtn.disabled = false;
     submitBtn.textContent = 'Sign In to Dashboard';
 

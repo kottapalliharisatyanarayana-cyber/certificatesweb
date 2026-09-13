@@ -7,6 +7,29 @@ let currentStudent = null;
 let currentCertData = null;
 let currentEventTitle = '';
 
+// Safe fetch helper handling text/HTML error responses
+async function safeFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      data = {
+        success: false,
+        message: text.replace(/<[^>]*>/g, '').trim().slice(0, 180) || `Server returned HTTP ${res.status}`
+      };
+    }
+    return { res, data };
+  } catch (netErr) {
+    return {
+      res: { ok: false, status: 0 },
+      data: { success: false, message: 'Network error: ' + netErr.message }
+    };
+  }
+}
+
 // Quick fill helper
 function fillRoll(roll) {
   const input = document.getElementById('rollInput');
@@ -38,8 +61,7 @@ async function handleSearch(e) {
   loadingState.style.display = 'block';
 
   try {
-    const res = await fetch(`/api/students/search/${encodeURIComponent(rollNo)}`);
-    const data = await res.json();
+    const { res, data } = await safeFetch(`/api/students/search/${encodeURIComponent(rollNo)}`);
 
     loadingState.style.display = 'none';
 

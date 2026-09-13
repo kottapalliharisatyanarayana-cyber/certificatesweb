@@ -34,9 +34,32 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Static asset folders
-app.use(express.static(path.join(__dirname, '../public')));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Static asset folders (for local development)
+if (!process.env.VERCEL) {
+  app.use(express.static(path.join(__dirname, '../public')));
+  app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+}
+
+// Database connection middleware for API routes in serverless / local
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api/') && req.path !== '/api/health') {
+    try {
+      const connected = await connectDB();
+      if (!connected) {
+        return res.status(503).json({
+          success: false,
+          message: 'Database connection failed. Please check MONGODB_URI in Vercel Environment Variables and ensure MongoDB Atlas Network Access includes 0.0.0.0/0.'
+        });
+      }
+    } catch (dbErr) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database error: ' + dbErr.message
+      });
+    }
+  }
+  next();
+});
 
 // Health & System Status Endpoint
 app.get('/api/health', (req, res) => {
