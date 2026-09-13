@@ -16,15 +16,21 @@ let lastError = null;
 let activeConnectionMode = 'disconnected';
 let cachedPromise = null;
 
+// Disable command buffering in serverless to fail fast instead of hanging on timeouts
+mongoose.set('bufferCommands', false);
+
 const formatUri = (rawUri) => {
   if (!rawUri) return '';
   let uri = rawUri.trim().replace(/^["']|["']$/g, '');
-  // If it's a mongodb+srv URI without database name before query params, append /certificate_db
-  if (uri.startsWith('mongodb+srv://') && !uri.includes('mongodb.net/')) {
-    if (uri.includes('?')) {
+  
+  if (uri.startsWith('mongodb+srv://') || uri.startsWith('mongodb://')) {
+    // If uri has mongodb.net/? or mongodb.net? (empty db name before query string)
+    if (/mongodb\.net\/\?/.test(uri)) {
+      uri = uri.replace('mongodb.net/?', 'mongodb.net/certificate_db?');
+    } else if (/mongodb\.net\/?$/.test(uri)) {
+      uri = uri.replace(/mongodb\.net\/?$/, 'mongodb.net/certificate_db?retryWrites=true&w=majority');
+    } else if (!/mongodb\.net\/[a-zA-Z0-9_-]+/.test(uri) && uri.includes('?')) {
       uri = uri.replace('?', '/certificate_db?');
-    } else {
-      uri = uri.replace(/\/?$/, '/certificate_db?retryWrites=true&w=majority');
     }
   }
   return uri;
@@ -36,7 +42,7 @@ const connectDB = async (customUri = null) => {
   const localFallbackUri = isVercel ? null : 'mongodb://127.0.0.1:27017/certificate_db';
 
   if (!primaryUri && !localFallbackUri) {
-    lastError = 'MONGODB_URI is not set. Please provide a MongoDB Atlas connection string.';
+    lastError = 'MONGODB_URI is not set. Please provide a MongoDB Atlas connection string in your environment variables.';
     console.warn('⚠️ ' + lastError);
     return false;
   }
@@ -57,6 +63,8 @@ const connectDB = async (customUri = null) => {
         console.log(`📡 Connecting to Primary MongoDB (${maskUri(primaryUri)})...`);
         const conn = await mongoose.connect(primaryUri, {
           serverSelectionTimeoutMS: 5000,
+          connectTimeoutMS: 5000,
+          maxPoolSize: 10,
         });
 
         isConnected = true;
@@ -67,10 +75,10 @@ const connectDB = async (customUri = null) => {
         return true;
       } catch (atlasErr) {
         console.warn(`⚠️ Primary MongoDB connection failed: ${atlasErr.message}`);
+        cachedPromise = null;
         if (isVercel) {
           isConnected = false;
           lastError = atlasErr.message;
-          cachedPromise = null;
           return false;
         }
         console.log('🔄 Attempting automatic fallback to local MongoDB (127.0.0.1:27017)...');
@@ -81,6 +89,8 @@ const connectDB = async (customUri = null) => {
       try {
         const conn = await mongoose.connect(localFallbackUri, {
           serverSelectionTimeoutMS: 4000,
+          connectTimeoutMS: 4000,
+          maxPoolSize: 10,
         });
 
         isConnected = true;

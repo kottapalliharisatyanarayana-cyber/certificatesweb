@@ -23,4 +23,4 @@ const ParticipationSchema = new mongoose.Schema({
 
 ParticipationSchema.index({ student: 1, event: 1 }, { unique: true });
 
-module.exports = mongoose.model('Participation', ParticipationSchema);
+module.exports = mongoose.models.Participation || mongoose.model('Participation', ParticipationSchema);

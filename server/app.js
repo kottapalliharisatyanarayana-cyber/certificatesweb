@@ -46,29 +46,60 @@ if (!process.env.VERCEL) {
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 }
 
-// Database connection middleware for API routes in serverless / local
+// Process-level unhandled rejection protection
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Promise Rejection:', reason);
+});
+
+// Database connection middleware for all API routes (Vercel serverless & local)
 app.use(async (req, res, next) => {
-  if (req.path.startsWith('/api/') && req.path !== '/api/health') {
-    try {
-      const connected = await connectDB();
-      if (!connected) {
-        return res.status(503).json({
-          success: false,
-          message: 'Database connection failed. Please check MONGODB_URI in Vercel Environment Variables and ensure MongoDB Atlas Network Access includes 0.0.0.0/0.'
-        });
-      }
-    } catch (dbErr) {
+  // Always allow health checks and base API info to respond without blocking on DB
+  if (req.path.endsWith('/health') || req.path === '/api' || req.path === '/api/' || req.path === '/') {
+    return next();
+  }
+
+  try {
+    const connected = await connectDB();
+    if (!connected) {
+      const dbStatus = getStatus();
       return res.status(503).json({
         success: false,
-        message: 'Database error: ' + dbErr.message
+        message: 'Database connection is not available: ' + (dbStatus.error || 'Please verify MONGODB_URI in Vercel Environment Variables and ensure MongoDB Atlas Network Access whitelist includes 0.0.0.0/0.'),
+        diagnosis: {
+          hasMongoUri: !!process.env.MONGODB_URI,
+          error: dbStatus.error,
+          mode: dbStatus.mode
+        }
       });
     }
+  } catch (dbErr) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database error: ' + dbErr.message
+    });
   }
   next();
 });
 
+// Root API Status Endpoint
+app.get(['/api', '/api/'], (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'Certificate Generation Web System API',
+    endpoints: {
+      health: '/api/health',
+      stats: '/api/stats',
+      students: '/api/students',
+      events: '/api/events',
+      templates: '/api/templates',
+      certificates: '/api/certificates',
+      upload: '/api/upload'
+    }
+  });
+});
+
 // Health & System Status Endpoint
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   const dbStatus = getStatus();
   res.json({
     status: 'online',
@@ -79,7 +110,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Admin System Statistics Endpoint
-app.get('/api/stats', async (req, res) => {
+app.get(['/api/stats', '/stats'], async (req, res) => {
   try {
     const [totalStudents, totalEvents, totalParticipations, activeTemplate] = await Promise.all([
       Student.countDocuments(),
@@ -194,9 +225,7 @@ const startServer = async () => {
   }
 };
 
-if (process.env.VERCEL) {
-  connectDB().catch(err => console.error('Vercel DB connection error:', err));
-} else {
+if (!process.env.VERCEL) {
   startServer();
 }
 

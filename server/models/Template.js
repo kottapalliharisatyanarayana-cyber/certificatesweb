@@ -25,4 +25,4 @@ const TemplateSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Template', TemplateSchema);
+module.exports = mongoose.models.Template || mongoose.model('Template', TemplateSchema);

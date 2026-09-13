@@ -302,13 +302,12 @@ async function startFileUpload() {
   }
 
   try {
-    const res = await fetch(endpoint, {
+    const { res, data } = await safeFetch(endpoint, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${authToken}` },
       body: formData
     });
 
-    const data = await res.json();
     uploadBtn.disabled = false;
     uploadBtn.textContent = '⚡ Process & Import Records';
 
@@ -553,7 +552,7 @@ async function handleManualStudentSubmit(e) {
   const eventIds = Array.from(checkboxes).map(cb => cb.value);
 
   try {
-    const res = await fetch('/api/students', {
+    const { res, data } = await safeFetch('/api/students', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -562,7 +561,6 @@ async function handleManualStudentSubmit(e) {
       body: JSON.stringify({ roll_no, name, branch, semester, email, eventIds })
     });
 
-    const data = await res.json();
     if (res.ok && data.success) {
       showToast(`Participant ${roll_no} saved successfully!`, 'success');
       clearManualForm();
@@ -594,10 +592,9 @@ async function loadStudents(page = 1) {
   if (!tbody) return;
 
   try {
-    const res = await fetch(`/api/students?page=${page}&limit=15&search=${encodeURIComponent(search)}`, {
+    const { res, data } = await safeFetch(`/api/students?page=${page}&limit=15&search=${encodeURIComponent(search)}`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    const data = await res.json();
 
     if (res.ok && data.success) {
       const students = data.students || [];
@@ -639,10 +636,9 @@ function changeStudentPage(delta) {
 // Edit Student Modal Handling
 async function openEditStudentModal(studentId) {
   try {
-    const res = await fetch(`/api/students/${studentId}`, {
+    const { res, data } = await safeFetch(`/api/students/${studentId}`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    const data = await res.json();
 
     if (!res.ok || !data.success) {
       showToast(data.message || 'Failed to load student details', 'error');
@@ -692,7 +688,7 @@ async function saveEditedStudent() {
   const eventIds = Array.from(checkboxes).map(cb => cb.value);
 
   try {
-    const res = await fetch(`/api/students/${studentId}`, {
+    const { res, data } = await safeFetch(`/api/students/${studentId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -701,7 +697,6 @@ async function saveEditedStudent() {
       body: JSON.stringify({ roll_no, name, branch, semester, email, eventIds })
     });
 
-    const data = await res.json();
     if (res.ok && data.success) {
       showToast(`Participant ${roll_no} updated successfully!`, 'success');
       closeEditModal();
@@ -719,11 +714,10 @@ async function deleteStudent(id, roll) {
   if (!confirm(`Delete student ${roll} and their participation records?`)) return;
 
   try {
-    const res = await fetch(`/api/students/${id}`, {
+    const { res, data } = await safeFetch(`/api/students/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    const data = await res.json();
     if (res.ok && data.success) {
       showToast(`Student ${roll} deleted`, 'success');
       loadStudents(studentCurrentPage);

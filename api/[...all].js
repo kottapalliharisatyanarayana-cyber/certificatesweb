@@ -1,11 +1,11 @@
 const app = require('../server/app');
 
-// Vercel Serverless Function Handler
+// Vercel Serverless Function Catch-All Handler
 module.exports = (req, res) => {
   try {
     return app(req, res);
   } catch (err) {
-    console.error('Fatal API Error:', err);
+    console.error('Fatal API Catch-all Error:', err);
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
